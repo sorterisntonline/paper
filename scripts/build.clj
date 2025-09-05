@@ -3,9 +3,7 @@
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
             [clojure.java.io :as io]
-            [clojure.string :as str])
-  (:import (java.time LocalDate Instant ZoneId)
-           (java.time.format DateTimeFormatter DateTimeParseException)))
+            [clojure.string :as str]))
 
 (def ROOT (fs/absolutize "."))
 (def POSTS_DIR (fs/path ROOT "posts"))
@@ -23,43 +21,16 @@
          (remove nil?)
          (sort-by :slug))))
 
-(defn- re-find1 [re s]
-  (when-let [m (re-find re s)]
-    (if (vector? m) (second m) m)))
-
 (defn extract-meta [tex-path]
   (let [content (slurp (io/file (str tex-path)))
-        title (some-> (re-find1 #"(?s)\\title\{(.*?)\}" content)
-                      (str/replace #"\s+" " ")
-                      (str/trim))
-        date-str (some-> (re-find1 #"(?s)\\date\{(.*?)\}" content)
-                         (str/replace #"\s+" " ")
-                         (str/trim))
-        title (or title (-> tex-path fs/file-name str (str/replace #"\.tex$" "")))
-        ds (let [raw (or date-str "")
-                 raw2 (-> raw (str/lower-case) (str/replace #"\\" ""))]
-             (if (or (str/blank? raw) (= raw2 "today"))
-               (let [ft (fs/last-modified-time tex-path)
-                     inst (Instant/ofEpochMilli (.toMillis ft))
-                     ld (.toLocalDate (java.time.ZonedDateTime/ofInstant inst (ZoneId/systemDefault)))
-                     fmt (DateTimeFormatter/ofPattern "yyyy-MM-dd")] 
-                 (.format ld fmt))
-               raw))]
-    {:title title :date ds}))
+        title-match (re-find #"(?s)\\title\{(.*?)\}" content)
+        title (if title-match
+                (-> (second title-match)
+                    (str/replace #"\s+" " ")
+                    (str/trim))
+                (-> tex-path fs/file-name str (str/replace #"\.tex$" "")))]
+    {:title title}))
 
-(def date-formats
-  [(DateTimeFormatter/ofPattern "yyyy-MM-dd")
-   (DateTimeFormatter/ofPattern "yyyy/MM/dd")
-   (DateTimeFormatter/ofPattern "dd-MM-yyyy")
-   (DateTimeFormatter/ofPattern "MMM d, yyyy")
-   (DateTimeFormatter/ofPattern "MMMM d, yyyy")])
-
-(defn parse-date [s]
-  (some (fn [^DateTimeFormatter fmt]
-          (try
-            (LocalDate/parse s fmt)
-            (catch DateTimeParseException _ nil)))
-        date-formats))
 
 (defn ensure-clean-dir [p]
   (when (fs/exists? p)
@@ -77,25 +48,21 @@
       (throw (ex-info "Tectonic failed" {:exit (:exit res)})))))
 
 (defn generate-index [items]
-  (let [items (->> items
-                   (sort-by (fn [{:keys [date]}]
-                              (or (parse-date date) (LocalDate/ofEpochDay 0)))
-                            #(compare %2 %1))) ; descending
-        html (->> ["<!doctype html>"
+  (let [html (->> ["<!doctype html>"
                    "<html lang=\"en\">"
                    "<head>"
                    "  <meta charset=\"utf-8\">"
                    "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
                    "  <title>LaTeX Blog</title>"
-                   "  <style>body{font:16px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#222} h1{font-size:1.8rem} ul{list-style:none;padding:0} li{margin:0.5rem 0} .date{color:#666;font-size:0.9rem;margin-left:0.5rem} .footer{margin-top:2rem;color:#666;font-size:0.9rem} a{color:#1558d6;text-decoration:none} a:hover{text-decoration:underline}</style>"
+                   "  <style>body{font:16px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#222} h1{font-size:1.8rem} ul{list-style:none;padding:0} li{margin:0.5rem 0} .footer{margin-top:2rem;color:#666;font-size:0.9rem} a{color:#1558d6;text-decoration:none} a:hover{text-decoration:underline}</style>"
                    "</head>"
                    "<body>"
                    "  <h1>LaTeX Blog</h1>"
                    "  <ul>"
                    (->> items
-                        (map (fn [{:keys [title date pdf-rel]}]
-                               (format "    <li><a href=\"%s\">%s</a><span class=\"date\">%s</span></li>"
-                                       pdf-rel title date)))
+                        (map (fn [{:keys [title pdf-rel]}]
+                               (format "    <li><a href=\"%s\">%s</a></li>"
+                                       pdf-rel title)))
                         (str/join "\n"))
                    "  </ul>"
                    "  <div class=\"footer\">Powered by Tectonic + GitHub Actions</div>"
@@ -112,7 +79,7 @@
       (System/exit 0))
     (let [items (->> posts
                      (map (fn [{:keys [slug main]}]
-                            (let [{:keys [title date]} (extract-meta main)
+                            (let [{:keys [title]} (extract-meta main)
                                   tmp-out (fs/path PUBLIC_DIR slug)]
                               (ensure-clean-dir tmp-out)
                               (compile-with-tectonic main tmp-out)
@@ -128,8 +95,8 @@
                                 (when (fs/exists? dest) (fs/delete dest))
                                 (fs/move src dest {:replace-existing true})
                                 (fs/delete-tree tmp-out)
-                                {:slug slug :title title :date date :pdf-rel (str (fs/file-name dest))})))))]
-      (spit (fs/path PUBLIC_DIR "index.html") (generate-index items))
+                                {:slug slug :title title :pdf-rel (str (fs/file-name dest))})))))]
+      (spit (str (fs/path PUBLIC_DIR "index.html")) (generate-index items))
       (println (format "Built %d posts into 'public/' and generated index.html" (count items))))))
 
 (-main)
