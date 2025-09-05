@@ -3,7 +3,8 @@
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
             [clojure.java.io :as io]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [hiccup2.core :as h]))
 
 (def ROOT (fs/absolutize "."))
 (def POSTS_DIR (fs/path ROOT "posts"))
@@ -48,28 +49,19 @@
       (throw (ex-info "Tectonic failed" {:exit (:exit res)})))))
 
 (defn generate-index [items]
-  (let [html (->> ["<!doctype html>"
-                   "<html lang=\"en\">"
-                   "<head>"
-                   "  <meta charset=\"utf-8\">"
-                   "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-                   "  <title>LaTeX Blog</title>"
-                   "  <style>body{font:16px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#222} h1{font-size:1.8rem} ul{list-style:none;padding:0} li{margin:0.5rem 0} .footer{margin-top:2rem;color:#666;font-size:0.9rem} a{color:#1558d6;text-decoration:none} a:hover{text-decoration:underline}</style>"
-                   "</head>"
-                   "<body>"
-                   "  <h1>LaTeX Blog</h1>"
-                   "  <ul>"
-                   (->> items
-                        (map (fn [{:keys [title pdf-rel]}]
-                               (format "    <li><a href=\"%s\">%s</a></li>"
-                                       pdf-rel title)))
-                        (str/join "\n"))
-                   "  </ul>"
-                   "  <div class=\"footer\">Powered by Tectonic + GitHub Actions</div>"
-                   "</body>"
-                   "</html>"]
-                  (str/join "\n"))]
-    html))
+  (str (h/html
+        [:html {:lang "en"}
+         [:head
+          [:meta {:charset "utf-8"}]
+          [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+          [:title "LaTeX Blog"]
+          [:style "body{font:16px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#222} h1{font-size:1.8rem} ul{list-style:none;padding:0} li{margin:0.5rem 0} .footer{margin-top:2rem;color:#666;font-size:0.9rem} a{color:#1558d6;text-decoration:none} a:hover{text-decoration:underline}"]]
+         [:body
+          [:h1 "LaTeX Blog"]
+          [:ul
+           (for [{:keys [title pdf-rel]} items]
+             [:li [:a {:href pdf-rel} title]])]
+          [:div.footer "Powered by Tectonic + GitHub Actions"]]])))
 
 (defn -main [& _]
   (fs/create-dirs PUBLIC_DIR)
