@@ -1,0 +1,11 @@
+public/
+.DS_Store
+*.log
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.out
+*.toc
+*.synctex.gz
