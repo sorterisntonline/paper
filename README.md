@@ -37,7 +37,7 @@ bb scripts/build.clj
 open public/index.html
 ```
 
-Note: The CI uses the official `setup-tectonic` and `setup-babashka` actions to install tools on runners; locally you must install them yourself (e.g., `brew install babashka tectonic`).
+Note: The CI uses `DeLaGuardo/setup-clojure` for Babashka and `wtfjoke/setup-tectonic` for Tectonic on runners; locally you must install them yourself (e.g., `brew install babashka tectonic`).
 
 ## Customization
 

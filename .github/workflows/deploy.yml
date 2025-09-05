@@ -21,11 +21,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Babashka
-        uses: babashka/setup-babashka@v1
+      - name: Install Clojure tools (Babashka)
+        uses: DeLaGuardo/setup-clojure@v13
+        with:
+          bb: latest
 
       - name: Setup Tectonic
-        uses: tectonic-typesetting/setup-tectonic@v3
+        uses: wtfjoke/setup-tectonic@v3
 
       - name: Build PDFs and index
         run: |

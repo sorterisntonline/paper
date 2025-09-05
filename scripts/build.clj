@@ -36,14 +36,15 @@
                          (str/replace #"\s+" " ")
                          (str/trim))
         title (or title (-> tex-path fs/file-name str (str/replace #"\.tex$" "")))
-        ds (let [ds (or date-str "")
-                 ds2 (-> ds (str/lower-case) (str/replace #"\\" ""))]
-             (if (or (str/blank? ds) (= ds2 "today"))
-               (-> (fs/last-modified-time tex-path)
-                   (.toInstant)
-                   (LocalDate/ofInstant (ZoneId/systemDefault))
-                   (.format (DateTimeFormatter/ofPattern "yyyy-MM-dd")))
-               date-str))]
+        ds (let [raw (or date-str "")
+                 raw2 (-> raw (str/lower-case) (str/replace #"\\" ""))]
+             (if (or (str/blank? raw) (= raw2 "today"))
+               (let [ft (fs/last-modified-time tex-path)
+                     inst (Instant/ofEpochMilli (.toMillis ft))
+                     ld (.toLocalDate (java.time.ZonedDateTime/ofInstant inst (ZoneId/systemDefault)))
+                     fmt (DateTimeFormatter/ofPattern "yyyy-MM-dd")] 
+                 (.format ld fmt))
+               raw))]
     {:title title :date ds}))
 
 (def date-formats
@@ -131,6 +132,4 @@
       (spit (fs/path PUBLIC_DIR "index.html") (generate-index items))
       (println (format "Built %d posts into 'public/' and generated index.html" (count items))))))
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (-main))
-
+(-main)
